@@ -1,0 +1,36 @@
+pkgname=mpv
+pkgver=e6f1d2fe199d3442150cef71de2aca3f7a554047
+pkgrel=3
+url="https://mpv.io/"
+source=("${pkgname}-${pkgver}.tar.gz::https://github.com/xfangfang/mpv/archive/${pkgver}.tar.gz")
+sha256sums=('SKIP')
+depends=('sdl2' 'libass' 'ffmpeg')
+
+prepare() {
+  cd $pkgname-$pkgver
+}
+
+build() {
+  cd $pkgname-$pkgver
+  meson setup build --prefix=$prefix --cross-file crossfile.txt  \
+      --default-library static \
+      -Diconv=disabled \
+      -Dlua=disabled  \
+      -Djpeg=disabled \
+      -Dopensles=disabled \
+      -Dlibavdevice=disabled \
+      -Dmanpage-build=disabled \
+      -Dhtml-build=disabled \
+      -Dsdl2=enabled \
+      -Dlibmpv=true \
+      -Dgxm=enabled \
+      -Dvitashark=enabled \
+      -Dcplayer=false
+
+  meson compile -C build
+}
+
+package () {
+  cd $pkgname-$pkgver
+  DESTDIR=$pkgdir meson install -C build
+}

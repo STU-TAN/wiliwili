@@ -15,6 +15,81 @@
 #include <webp/decode.h>
 #endif
 
+#ifdef __PSV__
+#define STB_DXT_IMPLEMENTATION
+#include <borealis/extern/nanovg/stb_dxt.h>
+#include <borealis/extern/nanovg/nanovg_gxm.h>
+
+static inline __attribute__((always_inline)) uint32_t nearest_po2(uint32_t val) {
+    val--;
+    val |= val >> 1;
+    val |= val >> 2;
+    val |= val >> 4;
+    val |= val >> 8;
+    val |= val >> 16;
+    val++;
+
+    return val;
+}
+
+static inline __attribute__((always_inline)) uint64_t morton_1(uint64_t x) {
+    x = x & 0x5555555555555555;
+    x = (x | (x >> 1)) & 0x3333333333333333;
+    x = (x | (x >> 2)) & 0x0F0F0F0F0F0F0F0F;
+    x = (x | (x >> 4)) & 0x00FF00FF00FF00FF;
+    x = (x | (x >> 8)) & 0x0000FFFF0000FFFF;
+    x = (x | (x >> 16)) & 0xFFFFFFFFFFFFFFFF;
+    return x;
+}
+
+static inline __attribute__((always_inline)) void d2xy_morton(uint64_t d, uint64_t *x, uint64_t *y) {
+    *x = morton_1(d);
+    *y = morton_1(d >> 1);
+}
+
+static inline __attribute__((always_inline)) void extract_block(const uint8_t *src, uint32_t width, uint8_t *block) {
+    for (int j = 0; j < 4; j++) {
+        memcpy(&block[j * 4 * 4], src, 16);
+        src += width * 4;
+    }
+}
+
+/**
+ * Compress RGBA data to DXT1 or DXT5
+ * @param dst DXT data
+ * @param src RGBA data
+ * @param w source width
+ * @param h source height
+ * @param stride source stride
+ * @param isdxt5 0 for DXT1, others for DXT5
+ */
+static void _dxt_compress(uint8_t *dst, uint8_t *src, uint32_t w, uint32_t h, uint32_t stride, int isdxt5) {
+    uint8_t block[64];
+    uint32_t align_w = nearest_po2(w);
+    uint32_t align_h = nearest_po2(h);
+    uint32_t s = align_w > align_h ? align_h : align_w;
+    uint32_t num_blocks =  s * s / 16;
+    const uint32_t block_size = isdxt5 ? 16 : 8;
+    uint64_t d, offs_x, offs_y;
+
+    for (d = 0; d < num_blocks; d++, dst += block_size) {
+        d2xy_morton(d, &offs_x, &offs_y);
+        if (offs_x * 4 >= h || offs_y * 4  >= w)
+            continue;
+        extract_block(src + offs_y * 16 + offs_x * stride * 16, stride, block);
+        stb_compress_dxt_block(dst, block, isdxt5, STB_DXT_NORMAL);
+    }
+    if (align_w > align_h)
+        return _dxt_compress(dst, src + s * 4, w - s, h, stride, isdxt5);
+    else if (align_w < align_h)
+        return _dxt_compress(dst, src + w * s * 4, w, h - s, stride, isdxt5);
+}
+
+void dxt_compress(uint8_t *dst, uint8_t *src, uint32_t w, uint32_t h, int isdxt5) {
+    _dxt_compress(dst, src, w, h, w, isdxt5);
+}
+#endif
+
 class ImageThreadPool : public cpr::ThreadPool, public brls::Singleton<ImageThreadPool> {
 public:
     ImageThreadPool() : cpr::ThreadPool(1, ImageHelper::REQUEST_THREADS, std::chrono::milliseconds(5000)) {
@@ -135,7 +210,9 @@ void ImageHelper::requestImage() {
         } else {
             NVGcontext* vg = brls::Application::getNVGContext();
             if (imageData) {
-                tex = nvgCreateImageRGBA(vg, imageW, imageH, 0, imageData);
+                tex = nvgCreateImageRGBA(vg, imageW, imageH, NVG_IMAGE_DXT1 | NVG_IMAGE_LPDDR, imageData);
+                NVGXMtexture *gxmTex = nvgxmImageHandle(vg, tex);
+                dxt_compress(gxmTex->data, imageData, imageW, imageH, 0);
             } else {
                 brls::Logger::error("Failed to load image: {}", this->imageUrl);
             }

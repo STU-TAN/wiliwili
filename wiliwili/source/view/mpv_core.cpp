@@ -151,6 +151,9 @@ static GLuint linkProgram(GLuint s1, GLuint s2) {
 #elif defined(BOREALIS_USE_D3D11)
 #include <borealis/platforms/driver/d3d11.hpp>
 extern std::unique_ptr<brls::D3D11Context> D3D11_CONTEXT;
+#elif defined(BOREALIS_USE_GXM)
+#include <borealis/platforms/psv/psv_video.hpp>
+#include <borealis/extern/nanovg/nanovg_gxm.h>
 #elif defined(USE_GL2)
 #undef glBindFramebuffer
 #define glBindFramebuffer(a, b) void()
@@ -195,9 +198,11 @@ static inline float aspectConverter(const std::string &value) {
 void MPVCore::on_update(void *self) {
     brls::sync([]() {
         uint64_t flags = mpvRenderContextUpdate(MPVCore::instance().getContext());
-#if !defined(MPV_SW_RENDER) && !defined(MPV_USE_FB)
+#if defined(MPV_NO_FB) || defined(BOREALIS_USE_DEKO3D) || defined(BOREALIS_USE_D3D11)
+        // 直接绘制到屏幕上，需要屏幕每刷新一次绘制一次，在 MPVCore 的绘制函数内部处理
         (void)flags;
 #else
+        // 绘制到 FBO、纹理、buffer...上，在主循环结尾进行绘制，MPVCore 的绘制函数内直接绘制对应的 FBO、纹理、buffer...
         MPVCore::instance().redraw = flags & MPV_RENDER_UPDATE_FRAME;
         if (MPVCore::instance().redraw) {
 #ifdef MPV_SW_RENDER
@@ -206,8 +211,10 @@ void MPVCore::on_update(void *self) {
             mpvRenderContextReportSwap(MPVCore::instance().mpv_context);
 #else
             mpvRenderContextRender(MPVCore::instance().mpv_context, MPVCore::instance().mpv_params);
+#ifdef BOREALIS_USE_GL
             glBindFramebuffer(GL_FRAMEBUFFER, MPVCore::instance().default_framebuffer);
             glViewport(0, 0, (GLsizei)brls::Application::windowWidth, (GLsizei)brls::Application::windowHeight);
+#endif
             mpvRenderContextReportSwap(MPVCore::instance().mpv_context);
 #endif
         }
@@ -371,7 +378,7 @@ void MPVCore::init() {
     // mpvSetOptionString(mpv, "msg-level", "all=no");
     if (MPVCore::TERMINAL) {
         mpvSetOptionString(mpv, "terminal", "yes");
-        if ( brls::Logger::getLogLevel() >= brls::LogLevel::LOG_DEBUG ) {
+        if (brls::Logger::getLogLevel() >= brls::LogLevel::LOG_DEBUG) {
             mpvSetOptionString(mpv, "msg-level", "all=v");
         }
     }
@@ -423,6 +430,39 @@ void MPVCore::init() {
         {MPV_RENDER_PARAM_DXGI_INIT_PARAMS, &init_params},
         {MPV_RENDER_PARAM_INVALID, nullptr},
     };
+#elif defined(BOREALIS_USE_GXM)
+    auto *video_context            = (brls::PsvVideoContext *)brls::Application::getPlatform()->getVideoContext();
+    auto *window                   = video_context->getWindow();
+    auto *vg                       = brls::Application::getNVGContext();
+    mpv_gxm_init_params gxm_params = {
+        .context        = window->context,
+        .shader_patcher = window->shader_patcher,
+        .buffer_index   = 0,
+    };
+
+    mpv_render_param params[] = {{MPV_RENDER_PARAM_API_TYPE, (void *)MPV_RENDER_API_TYPE_GXM},
+                                 {MPV_RENDER_PARAM_GXM_INIT_PARAMS, &gxm_params},
+                                 {MPV_RENDER_PARAM_INVALID, nullptr}};
+
+    int texture_width     = DISPLAY_WIDTH;
+    int texture_height    = DISPLAY_HEIGHT;
+    int texture_stride    = ALIGN(texture_width, 8);
+    nvg_image             = nvgCreateImageRGBA(vg, texture_width, texture_height, 0, nullptr);
+    NVGXMtexture *texture = nvgxmImageHandle(vg, nvg_image);
+
+    NVGXMframebufferInitOptions framebufferOpts = {
+        .display_buffer_count = 1,  // Must be 1 for custom FBOs
+        .scenesPerFrame       = 1,
+        .render_target        = texture,
+        .color_format         = SCE_GXM_COLOR_FORMAT_U8U8U8U8_ABGR,
+        .color_surface_type   = SCE_GXM_COLOR_SURFACE_LINEAR,
+        .display_width        = texture_width,
+        .display_height       = texture_height,
+        .display_stride       = texture_stride,
+    };
+    mpv_fbo.tex = gxmCreateFramebuffer(&framebufferOpts);
+    mpv_fbo.w   = texture_width;
+    mpv_fbo.h   = texture_height;
 #else
     int advanced_control{1};
     mpv_opengl_init_params gl_init_params{get_proc_address, nullptr};
@@ -660,6 +700,11 @@ void MPVCore::setFrameSize(brls::Rect r) {
     // 在视频暂停时调整纹理尺寸，视频画面会被清空为黑色，强制重新绘制一次，避免这个问题
     mpvRenderContextRender(mpv_context, mpv_params);
     mpvRenderContextReportSwap(mpv_context);
+#elif defined(BOREALIS_USE_GXM)
+    brls::sync([this]() {
+        mpvRenderContextRender(mpv_context, mpv_params);
+        mpvRenderContextReportSwap(mpv_context);
+    });
 #elif !defined(MPV_USE_FB)
         // Using default framebuffer
 #ifndef BOREALIS_USE_D3D11
@@ -734,7 +779,23 @@ void MPVCore::draw(brls::Rect area, float alpha) {
     nvgRect(vg, rect.getMinX(), rect.getMinY(), rect.getWidth(), rect.getHeight());
     nvgFillPaint(vg, nvgImagePattern(vg, 0, 0, rect.getWidth(), rect.getHeight(), 0, nvg_image, alpha));
     nvgFill(vg);
-#elif !defined(MPV_USE_FB)
+#elif defined(BOREALIS_USE_GXM)
+    auto *vg = brls::Application::getNVGContext();
+
+    // TODO: 完全完成mpv后移除, 目前mpv调用nanovg内的 gxmClear 会导致视频画面闪烁
+    if (rect.getWidth() < brls::Application::contentWidth) {
+        nvgBeginPath(vg);
+        nvgFillColor(vg, brls::Application::getTheme().getColor("brls/background"));
+        nvgRect(vg, 0, 0, brls::Application::contentWidth, brls::Application::contentHeight);
+        nvgFill(vg);
+    }
+
+    NVGpaint img = nvgImagePattern(vg, 0, 0, area.getWidth(), area.getHeight(), 0, nvg_image, alpha);
+    nvgBeginPath(vg);
+    nvgRect(vg, area.getMinX(), area.getMinY(), area.getWidth(), area.getHeight());
+    nvgFillPaint(vg, img);
+    nvgFill(vg);
+#elif defined(MPV_NO_FB) || defined(BOREALIS_USE_DEKO3D) || defined(BOREALIS_USE_D3D11)
     // 只在非透明时绘制视频，可以避免退出页面时视频画面残留
     if (alpha >= 1) {
 #ifdef BOREALIS_USE_DEKO3D
@@ -743,7 +804,6 @@ void MPVCore::draw(brls::Rect area, float alpha) {
         videoContext->queueSignalFence(&readyFence);
         videoContext->queueFlush();
 #endif
-        // 绘制视频
         mpvRenderContextRender(this->mpv_context, mpv_params);
 #ifdef BOREALIS_USE_DEKO3D
         videoContext->queueWaitFence(&doneFence);
@@ -770,7 +830,7 @@ void MPVCore::draw(brls::Rect area, float alpha) {
         }
     }
 #else
-    // shader draw
+    // OpenGL 将 FBO 绘制到屏幕上
     glUseProgram(shader.prog);
     glBindTexture(GL_TEXTURE_2D, this->media_texture);
 #ifdef MPV_USE_VAO
@@ -1154,7 +1214,7 @@ void MPVCore::setAspect(const std::string &value) {
 
 void MPVCore::setMirror(bool value) {
     MPVCore::VIDEO_MIRROR = value;
-    command_async("set", "vf", value ? "hflip": "");
+    command_async("set", "vf", value ? "hflip" : "");
 }
 
 void MPVCore::setBrightness(int value) {
