@@ -15,7 +15,7 @@
 #include <webp/decode.h>
 #endif
 
-#ifdef __PSV__
+#ifdef BOREALIS_USE_GXM
 #define STB_DXT_IMPLEMENTATION
 #include <borealis/extern/nanovg/stb_dxt.h>
 #include <borealis/extern/nanovg/nanovg_gxm.h>
@@ -210,9 +210,13 @@ void ImageHelper::requestImage() {
         } else {
             NVGcontext* vg = brls::Application::getNVGContext();
             if (imageData) {
-                tex = nvgCreateImageRGBA(vg, imageW, imageH, NVG_IMAGE_DXT1 | NVG_IMAGE_LPDDR, imageData);
+#ifdef BOREALIS_USE_GXM
+                tex = nvgCreateImageRGBA(vg, imageW, imageH, NVG_IMAGE_DXT1 | NVG_IMAGE_LPDDR, nullptr);
                 NVGXMtexture *gxmTex = nvgxmImageHandle(vg, tex);
                 dxt_compress(gxmTex->data, imageData, imageW, imageH, 0);
+#else
+                tex = nvgCreateImageRGBA(vg, imageW, imageH, 0, imageData);
+#endif
             } else {
                 brls::Logger::error("Failed to load image: {}", this->imageUrl);
             }
