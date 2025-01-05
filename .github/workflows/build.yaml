@@ -500,8 +500,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { driver: gxm,   cmake: "-DSIMPLE_HIGHLIGHT=ON -DUSE_SYSTEM_SDL2=ON" }
-          - { driver: gles2, cmake: "-DUSE_GXM=ON -DUSE_VITA_SHARK=ON" }
+          - { driver: gxm,   docker: latest-gxm, cmake: "-DUSE_GXM=ON -DUSE_VITA_SHARK=ON" }
+          - { driver: gles2, docker: latest,     cmake: "-DSIMPLE_HIGHLIGHT=ON -DUSE_SYSTEM_SDL2=ON" }
 
     steps:
       - uses: actions/checkout@v4
@@ -511,7 +511,7 @@ jobs:
 
       - name: Build wiliwili
         run: |
-          docker run --rm -v $(pwd):/src/ xfangfang/wiliwili_psv_builder:latest-gxm \
+          docker run --rm -v $(pwd):/src/ xfangfang/wiliwili_psv_builder:${{ matrix.docker }} \
             "cmake -B build -G Ninja -DPLATFORM_PSV=ON -DUSE_SYSTEM_CURL=ON -DCMAKE_UNITY_BUILD_BATCH_SIZE=16 \
                -DBRLS_UNITY_BUILD=${{ github.event.inputs.disable_unity_build == 'true' && 'OFF' || 'ON' }} \
                -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake }} && \
