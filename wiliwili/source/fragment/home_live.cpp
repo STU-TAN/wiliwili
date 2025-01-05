@@ -52,7 +52,7 @@ public:
         if (pic.empty()) {
             this->image->setImageFromRes("pictures/22_open.png");
         } else {
-            ImageHelper::with(image)->load(pic + ImageHelper::face_ext);
+            ImageHelper::with(image)->load(pic + ImageHelper::face_ext, IMAGE_FLAG_ALPHA);
         }
     }
 
@@ -110,7 +110,7 @@ public:
         if (pic.empty()) {
             this->image->setImageFromRes("pictures/22_open.png");
         } else {
-            ImageHelper::with(image)->load(pic + ImageHelper::face_ext);
+            ImageHelper::with(image)->load(pic + ImageHelper::face_ext, IMAGE_FLAG_ALPHA);
         }
     }
 

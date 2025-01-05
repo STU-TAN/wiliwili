@@ -10,6 +10,15 @@
 #include <unordered_map>
 #include <borealis/views/image.hpp>
 
+#ifdef BOREALIS_USE_GXM
+#include <borealis/extern/nanovg/nanovg_gxm.h>
+#define IMAGE_FLAG_BASE NVG_IMAGE_DXT1
+#define IMAGE_FLAG_ALPHA NVG_IMAGE_DXT5
+#else
+#define IMAGE_FLAG_BASE 0
+#define IMAGE_FLAG_ALPHA 0
+#endif
+
 /**
  * 图片加载请求，每个请求对应一个ImageHelper的实例
  */
@@ -38,7 +47,8 @@ public:
     /**
      * 加载网络图片。此函数需要工作在主线程。
      */
-    void load(std::string url);
+    void load(const std::string& url);
+    void load(const std::string& url, int flag);
 
     /**
      * 取消请求，并清空图片。此函数需要工作在主线程。
@@ -50,6 +60,17 @@ public:
     /// 图片请求后缀，用来控制图片大小
 #ifdef USE_WEBP
 #ifdef __PSV__
+#ifdef BOREALIS_USE_GXM
+    inline static std::string h_ext           = "@256w_144h_1c.webp";
+    inline static std::string v_ext           = "@190w_256h_1c.webp";
+    inline static std::string face_ext        = "@64w_64h_1c_1s.webp";
+    inline static std::string face_large_ext  = "@128w_128h_1c_1s.webp";
+    inline static std::string emoji_size1_ext = "@32w_32h.webp";
+    inline static std::string emoji_size2_ext = "@64w_64h.webp";
+    inline static std::string note_ext        = "@256w_256h_85q_!note-comment-multiple.webp";
+    inline static std::string note_custom_ext = "@{}w_{}h_85q_!note-comment-multiple.webp";
+    inline static std::string note_raw_ext    = "@256h.webp";
+#else
     inline static std::string h_ext           = "@224w_126h_1c.webp";
     inline static std::string v_ext           = "@156w_210h_1c.webp";
     inline static std::string face_ext        = "@48w_48h_1c_1s.webp";
@@ -58,7 +79,8 @@ public:
     inline static std::string emoji_size2_ext = "@36w_36h.webp";
     inline static std::string note_ext        = "@180w_180h_85q_!note-comment-multiple.webp";
     inline static std::string note_custom_ext = "@{}w_{}h_85q_!note-comment-multiple.webp";
-    inline static std::string note_raw_ext    = "@300h.webp";
+    inline static std::string note_raw_ext    = "@256h.webp";
+#endif
 #else
     inline static std::string h_ext           = "@672w_378h_1c.webp";
     inline static std::string v_ext           = "@312w_420h_1c.webp";
@@ -108,6 +130,7 @@ protected:
 private:
     bool isCancel{};
     brls::Image* imageView;
+    int imageFlag;
     std::string imageUrl;
     Pool::iterator currentIter;
 

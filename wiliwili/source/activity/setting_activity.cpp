@@ -270,6 +270,8 @@ void SettingActivity::onContentAvailable() {
 #endif
 #elif defined(BOREALIS_USE_D3D11)
                                + " (D3D11)"
+#elif defined(BOREALIS_USE_GXM)
+                               + " (GXM)"
 #endif
     );
     labelOpensource->setText(OPENSOURCE);

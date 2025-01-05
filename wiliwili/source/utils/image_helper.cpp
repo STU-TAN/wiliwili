@@ -16,9 +16,14 @@
 #endif
 
 #ifdef BOREALIS_USE_GXM
+#ifndef MAX
+#define MAX(a,b) (((a)>(b))?(a):(b))
+#endif
+#ifndef MIN
+#define MIN(a,b) (((a)<(b))?(a):(b))
+#endif
 #define STB_DXT_IMPLEMENTATION
 #include <borealis/extern/nanovg/stb_dxt.h>
-#include <borealis/extern/nanovg/nanovg_gxm.h>
 
 static inline __attribute__((always_inline)) uint32_t nearest_po2(uint32_t val) {
     val--;
@@ -61,32 +66,34 @@ static inline __attribute__((always_inline)) void extract_block(const uint8_t *s
  * @param w source width
  * @param h source height
  * @param stride source stride
- * @param isdxt5 0 for DXT1, others for DXT5
+ * @param isdxt5 false for DXT1, true for DXT5
  */
-static void _dxt_compress(uint8_t *dst, uint8_t *src, uint32_t w, uint32_t h, uint32_t stride, int isdxt5) {
+static void dxt_compress_ext(uint8_t *dst, uint8_t *src, uint32_t w, uint32_t h, uint32_t stride, bool isdxt5) {
     uint8_t block[64];
-    uint32_t align_w = nearest_po2(w);
-    uint32_t align_h = nearest_po2(h);
-    uint32_t s = align_w > align_h ? align_h : align_w;
-    uint32_t num_blocks =  s * s / 16;
+    uint32_t align_w = MAX(nearest_po2(w), 64);
+    uint32_t align_h = MAX(nearest_po2(h), 64);
+    uint32_t s = MIN(align_w, align_h);
+    uint32_t num_blocks = s * s / 16;
     const uint32_t block_size = isdxt5 ? 16 : 8;
     uint64_t d, offs_x, offs_y;
 
     for (d = 0; d < num_blocks; d++, dst += block_size) {
         d2xy_morton(d, &offs_x, &offs_y);
-        if (offs_x * 4 >= h || offs_y * 4  >= w)
+        if (offs_x * 4 >= h || offs_y * 4 >= w)
             continue;
         extract_block(src + offs_y * 16 + offs_x * stride * 16, stride, block);
         stb_compress_dxt_block(dst, block, isdxt5, STB_DXT_NORMAL);
     }
-    if (align_w > align_h)
-        return _dxt_compress(dst, src + s * 4, w - s, h, stride, isdxt5);
-    else if (align_w < align_h)
-        return _dxt_compress(dst, src + w * s * 4, w, h - s, stride, isdxt5);
+    if (align_w > align_h) {
+        return dxt_compress_ext(dst, src + s * 4, w - s, h, stride, isdxt5);
+    }
+    else if (align_w < align_h) {
+        return dxt_compress_ext(dst, src + stride * s * 4, w, h - s, stride, isdxt5);
+    }
 }
 
-void dxt_compress(uint8_t *dst, uint8_t *src, uint32_t w, uint32_t h, int isdxt5) {
-    _dxt_compress(dst, src, w, h, w, isdxt5);
+static void dxt_compress(uint8_t *dst, uint8_t *src, uint32_t w, uint32_t h, bool isdxt5) {
+    dxt_compress_ext(dst, src, w, h, w, isdxt5);
 }
 #endif
 
@@ -134,8 +141,11 @@ std::shared_ptr<ImageHelper> ImageHelper::with(brls::Image* view) {
     return item;
 }
 
-void ImageHelper::load(std::string url) {
+void ImageHelper::load(const std::string &url) { this->load(url, IMAGE_FLAG_BASE); }
+
+void ImageHelper::load(const std::string &url, int flag) {
     this->imageUrl = url;
+    this->imageFlag = flag;
 
     brls::Logger::verbose("load view: {} {}", (size_t)this->imageView, (size_t)this);
 
@@ -211,9 +221,10 @@ void ImageHelper::requestImage() {
             NVGcontext* vg = brls::Application::getNVGContext();
             if (imageData) {
 #ifdef BOREALIS_USE_GXM
-                tex = nvgCreateImageRGBA(vg, imageW, imageH, NVG_IMAGE_DXT1 | NVG_IMAGE_LPDDR, nullptr);
+                bool dxt5 = this->imageFlag & NVG_IMAGE_DXT5;
+                tex = nvgCreateImageRGBA(vg, imageW, imageH, (dxt5 ? NVG_IMAGE_DXT5 : NVG_IMAGE_DXT1) | NVG_IMAGE_LPDDR, nullptr);
                 NVGXMtexture *gxmTex = nvgxmImageHandle(vg, tex);
-                dxt_compress(gxmTex->data, imageData, imageW, imageH, 0);
+                dxt_compress(gxmTex->data, imageData, imageW, imageH, dxt5);
 #else
                 tex = nvgCreateImageRGBA(vg, imageW, imageH, 0, imageData);
 #endif

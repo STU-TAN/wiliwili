@@ -28,7 +28,7 @@ public:
     explicit NetImageGalleryItem(const std::string& url) {
         this->inflateFromXMLString(ImageGalleryItemXML);
         this->image->setImageFromRes("icon/bilibili_video.png");
-        ImageHelper::with(this->image)->load(url);
+        ImageHelper::with(this->image)->load(url, IMAGE_FLAG_ALPHA);
     }
     ~NetImageGalleryItem() override { ImageHelper::clear(this->image); }
 
