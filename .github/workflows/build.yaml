@@ -523,6 +523,9 @@ jobs:
             "cmake -B build -G Ninja -DPLATFORM_PSV=ON -DUSE_SYSTEM_CURL=ON -DUSE_GXM=ON -DUSE_VITA_SHARK=ON -DCMAKE_BUILD_TYPE=Release && \
              cmake --build build"
 
+      - name: Rename eboot
+        run: mv build/wiliwili.self build/eboot.bin
+
       - name: Upload vpk
         uses: actions/upload-artifact@v4
         with:
