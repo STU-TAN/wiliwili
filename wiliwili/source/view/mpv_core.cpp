@@ -701,6 +701,9 @@ void MPVCore::setFrameSize(brls::Rect r) {
     mpvRenderContextRender(mpv_context, mpv_params);
     mpvRenderContextReportSwap(mpv_context);
 #elif defined(BOREALIS_USE_GXM)
+    // This line will be called between beginFrame() and endFrame() in Application::frame(),
+    // but mpvRenderContextRender(...) will call functions similar to beginFrame() and endFrame() to draw content to FBO,
+    // and that will cause error in GXM, so call in brls::sync to make the mpv drawing calls outside the brls::Application::frame().
     brls::sync([this]() {
         mpvRenderContextRender(mpv_context, mpv_params);
         mpvRenderContextReportSwap(mpv_context);
