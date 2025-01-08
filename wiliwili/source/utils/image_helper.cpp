@@ -9,6 +9,7 @@
 #include <stb_image.h>
 
 #include "utils/image_helper.hpp"
+#include "utils/string_helper.hpp"
 #include "api/bilibili/util/http.hpp"
 
 #ifdef USE_WEBP
@@ -301,3 +302,22 @@ void ImageHelper::setRequestThreads(size_t num) {
 void ImageHelper::setImageView(brls::Image* view) { this->imageView = view; }
 
 brls::Image* ImageHelper::getImageView() { return this->imageView; }
+
+std::string ImageHelper::parseGifImageUrl(const std::string& url, const std::string& ext) {
+#ifdef USE_WEBP
+    std::string image_url = url;
+    if (pystring::endswith(url, "gif")) {
+        // gif 图片暂时按照 jpg 来解析
+        image_url += pystring::replace(ext, ".webp", ".jpg");
+    } else {
+        image_url += ext;
+    }
+    return image_url;
+#else
+    return url + ext;
+#endif
+}
+
+std::string ImageHelper::parseNoteImageUrl(const std::string& url, size_t w, size_t h) {
+    return parseGifImageUrl(url, wiliwili::format(note_custom_ext, w, h));
+}
