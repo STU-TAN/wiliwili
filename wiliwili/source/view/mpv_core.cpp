@@ -211,7 +211,7 @@ void MPVCore::on_update(void *self) {
             mpvRenderContextReportSwap(MPVCore::instance().mpv_context);
 #else
             mpvRenderContextRender(MPVCore::instance().mpv_context, MPVCore::instance().mpv_params);
-#ifdef BOREALIS_USE_GL
+#ifdef BOREALIS_USE_OPENGL
             glBindFramebuffer(GL_FRAMEBUFFER, MPVCore::instance().default_framebuffer);
             glViewport(0, 0, (GLsizei)brls::Application::windowWidth, (GLsizei)brls::Application::windowHeight);
 #endif
