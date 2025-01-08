@@ -349,7 +349,7 @@ RichTextImage::RichTextImage(std::string url, float width, float height, bool au
     image->setCornerRadius(4);
     image->setScalingType(brls::ImageScalingType::FIT);
 
-    if (autoLoad) ImageHelper::with(image)->load(this->url, IMAGE_FLAG_ALPHA);
+    if (autoLoad) ImageHelper::with(image)->load(this->url);
 }
 
 RichTextImage::~RichTextImage() {

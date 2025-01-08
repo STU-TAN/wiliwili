@@ -24,6 +24,7 @@
 #endif
 #define STB_DXT_IMPLEMENTATION
 #include <borealis/extern/nanovg/stb_dxt.h>
+#include <borealis/extern/nanovg/nanovg_gxm.h>
 
 static inline __attribute__((always_inline)) uint32_t nearest_po2(uint32_t val) {
     val--;
@@ -141,11 +142,17 @@ std::shared_ptr<ImageHelper> ImageHelper::with(brls::Image* view) {
     return item;
 }
 
-void ImageHelper::load(const std::string &url) { this->load(url, IMAGE_FLAG_BASE); }
-
-void ImageHelper::load(const std::string &url, int flag) {
+void ImageHelper::load(const std::string &url) {
     this->imageUrl = url;
-    this->imageFlag = flag;
+
+#ifdef BOREALIS_USE_GXM
+    std::vector<std::string> urls = pystring::rsplit(this->imageUrl, "@", 1);
+    if (pystring::endswith(urls[0], "jpg")) {
+        this->imageFlag |= NVG_IMAGE_DXT1;
+    } else {
+        this->imageFlag |= NVG_IMAGE_DXT5;
+    }
+#endif
 
     brls::Logger::verbose("load view: {} {}", (size_t)this->imageView, (size_t)this);
 

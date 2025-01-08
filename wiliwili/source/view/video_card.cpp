@@ -62,7 +62,7 @@ void RecyclingGridItemVideoCard::setExtraInfo(const std::string& extra, float wi
         this->boxHint->setVisibility(brls::Visibility::GONE);
         this->pictureHint->setVisibility(brls::Visibility::VISIBLE);
         this->pictureHint->setDimensions(width, height);
-        ImageHelper::with(this->pictureHint)->load(extra, IMAGE_FLAG_ALPHA);
+        ImageHelper::with(this->pictureHint)->load(extra);
     } else {
         this->svgUp->setVisibility(brls::Visibility::GONE);
         this->boxHint->setVisibility(brls::Visibility::VISIBLE);
@@ -248,11 +248,11 @@ void RecyclingGridItemPGCVideoCard::setCard(std::string pic, std::string title, 
     this->labelDuration->setText(badge_bottom_right);
 
     if (!badge_top.empty()) {
-        ImageHelper::with(this->badgeTop)->load(badge_top, IMAGE_FLAG_ALPHA);
+        ImageHelper::with(this->badgeTop)->load(badge_top);
     }
 
     if (!badge_bottom_left.empty()) {
-        ImageHelper::with(this->badgeBottomLeft)->load(badge_bottom_left, IMAGE_FLAG_ALPHA);
+        ImageHelper::with(this->badgeBottomLeft)->load(badge_bottom_left);
     }
 }
 

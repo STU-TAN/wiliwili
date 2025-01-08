@@ -10,15 +10,6 @@
 #include <unordered_map>
 #include <borealis/views/image.hpp>
 
-#ifdef BOREALIS_USE_GXM
-#include <borealis/extern/nanovg/nanovg_gxm.h>
-#define IMAGE_FLAG_BASE NVG_IMAGE_DXT1
-#define IMAGE_FLAG_ALPHA NVG_IMAGE_DXT5
-#else
-#define IMAGE_FLAG_BASE 0
-#define IMAGE_FLAG_ALPHA 0
-#endif
-
 /**
  * 图片加载请求，每个请求对应一个ImageHelper的实例
  */
@@ -48,7 +39,6 @@ public:
      * 加载网络图片。此函数需要工作在主线程。
      */
     void load(const std::string& url);
-    void load(const std::string& url, int flag);
 
     /**
      * 取消请求，并清空图片。此函数需要工作在主线程。
@@ -130,9 +120,12 @@ protected:
 private:
     bool isCancel{};
     brls::Image* imageView;
-    int imageFlag;
     std::string imageUrl;
     Pool::iterator currentIter;
+
+#ifdef BOREALIS_USE_GXM
+    int imageFlag;
+#endif
 
     /// 清理图片或取消请求时，用来定位 ImageHelper
     inline static std::unordered_map<brls::Image*, Pool::iterator> requestMap;
