@@ -67,12 +67,13 @@ static inline __attribute__((always_inline)) void extract_block(const uint8_t *s
  * @param w source width
  * @param h source height
  * @param stride source stride
+ * @param last_size max block size in pixel of last compression round, default is 64
  * @param isdxt5 false for DXT1, true for DXT5
  */
-static void dxt_compress_ext(uint8_t *dst, uint8_t *src, uint32_t w, uint32_t h, uint32_t stride, bool isdxt5) {
+static void dxt_compress_ext(uint8_t *dst, uint8_t *src, uint32_t w, uint32_t h, uint32_t stride, uint32_t last_size, bool isdxt5) {
     uint8_t block[64];
-    uint32_t align_w = MAX(nearest_po2(w), 64);
-    uint32_t align_h = MAX(nearest_po2(h), 64);
+    uint32_t align_w = MAX(nearest_po2(w), last_size);
+    uint32_t align_h = MAX(nearest_po2(h), last_size);
     uint32_t s = MIN(align_w, align_h);
     uint32_t num_blocks = s * s / 16;
     const uint32_t block_size = isdxt5 ? 16 : 8;
@@ -85,16 +86,14 @@ static void dxt_compress_ext(uint8_t *dst, uint8_t *src, uint32_t w, uint32_t h,
         extract_block(src + offs_y * 16 + offs_x * stride * 16, stride, block);
         stb_compress_dxt_block(dst, block, isdxt5, STB_DXT_NORMAL);
     }
-    if (align_w > align_h) {
-        return dxt_compress_ext(dst, src + s * 4, w - s, h, stride, isdxt5);
-    }
-    else if (align_w < align_h) {
-        return dxt_compress_ext(dst, src + stride * s * 4, w, h - s, stride, isdxt5);
-    }
+    if (align_w > align_h)
+        return dxt_compress_ext(dst, src + s * 4, w - s, h, stride, s, isdxt5);
+    if (align_w < align_h)
+        return dxt_compress_ext(dst, src + stride * s * 4, w, h - s, stride, s, isdxt5);
 }
 
 static void dxt_compress(uint8_t *dst, uint8_t *src, uint32_t w, uint32_t h, bool isdxt5) {
-    dxt_compress_ext(dst, src, w, h, w, isdxt5);
+    dxt_compress_ext(dst, src, w, h, w, 64, isdxt5);
 }
 #endif
 
@@ -148,9 +147,9 @@ void ImageHelper::load(const std::string &url) {
 #ifdef BOREALIS_USE_GXM
     std::vector<std::string> urls = pystring::rsplit(this->imageUrl, "@", 1);
     if (pystring::endswith(urls[0], "jpg")) {
-        this->imageFlag |= NVG_IMAGE_DXT1;
+        this->imageFlag = NVG_IMAGE_DXT1;
     } else {
-        this->imageFlag |= NVG_IMAGE_DXT5;
+        this->imageFlag = NVG_IMAGE_DXT5;
     }
 #endif
 
