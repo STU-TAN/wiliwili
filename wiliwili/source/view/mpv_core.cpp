@@ -700,7 +700,9 @@ void MPVCore::setFrameSize(brls::Rect r) {
     // 在视频暂停时调整纹理尺寸，视频画面会被清空为黑色，强制重新绘制一次，避免这个问题
     mpvRenderContextRender(mpv_context, mpv_params);
     mpvRenderContextReportSwap(mpv_context);
-#elif defined(BOREALIS_USE_GXM)
+#elif !defined(MPV_USE_FB)
+        // Using default framebuffer
+#if defined(BOREALIS_USE_GXM)
     // This line will be called between beginFrame() and endFrame() in Application::frame(),
     // but mpvRenderContextRender(...) will call functions similar to beginFrame() and endFrame() to draw content to FBO,
     // and that will cause error in GXM, so call in brls::sync to make the mpv drawing calls outside the brls::Application::frame().
@@ -708,12 +710,12 @@ void MPVCore::setFrameSize(brls::Rect r) {
         mpvRenderContextRender(mpv_context, mpv_params);
         mpvRenderContextReportSwap(mpv_context);
     });
-#elif !defined(MPV_USE_FB)
-        // Using default framebuffer
-#ifndef BOREALIS_USE_D3D11
+#elif defined(BOREALIS_USE_D3D11)
+#else
     this->mpv_fbo.w = brls::Application::windowWidth;
     this->mpv_fbo.h = brls::Application::windowHeight;
 #endif
+    if (brls::Application::contentWidth < rect.getMaxX() || brls::Application::contentHeight < rect.getMaxY()) return;
     command_async("set", "video-margin-ratio-right",
                   (brls::Application::contentWidth - rect.getMaxX()) / brls::Application::contentWidth);
     command_async("set", "video-margin-ratio-bottom",
@@ -793,7 +795,7 @@ void MPVCore::draw(brls::Rect area, float alpha) {
         nvgFill(vg);
     }
 
-    NVGpaint img = nvgImagePattern(vg, 0, 0, area.getWidth(), area.getHeight(), 0, nvg_image, alpha);
+    NVGpaint img = nvgImagePattern(vg, 0, 0, mpv_fbo.w, mpv_fbo.h, 0, nvg_image, alpha);
     nvgBeginPath(vg);
     nvgRect(vg, area.getMinX(), area.getMinY(), area.getWidth(), area.getHeight());
     nvgFillPaint(vg, img);
