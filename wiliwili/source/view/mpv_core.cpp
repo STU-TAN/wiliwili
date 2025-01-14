@@ -444,25 +444,27 @@ void MPVCore::init() {
                                  {MPV_RENDER_PARAM_GXM_INIT_PARAMS, &gxm_params},
                                  {MPV_RENDER_PARAM_INVALID, nullptr}};
 
-    int texture_width     = DISPLAY_WIDTH;
-    int texture_height    = DISPLAY_HEIGHT;
-    int texture_stride    = ALIGN(texture_width, 8);
-    nvg_image             = nvgCreateImageRGBA(vg, texture_width, texture_height, 0, nullptr);
-    NVGXMtexture *texture = nvgxmImageHandle(vg, nvg_image);
+    if (mpv_fbo.tex == nullptr) {
+        int texture_width     = DISPLAY_WIDTH;
+        int texture_height    = DISPLAY_HEIGHT;
+        int texture_stride    = ALIGN(texture_width, 8);
+        nvg_image             = nvgCreateImageRGBA(vg, texture_width, texture_height, 0, nullptr);
+        NVGXMtexture *texture = nvgxmImageHandle(vg, nvg_image);
 
-    NVGXMframebufferInitOptions framebufferOpts = {
-        .display_buffer_count = 1,  // Must be 1 for custom FBOs
-        .scenesPerFrame       = 1,
-        .render_target        = texture,
-        .color_format         = SCE_GXM_COLOR_FORMAT_U8U8U8U8_ABGR,
-        .color_surface_type   = SCE_GXM_COLOR_SURFACE_LINEAR,
-        .display_width        = texture_width,
-        .display_height       = texture_height,
-        .display_stride       = texture_stride,
-    };
-    mpv_fbo.tex = gxmCreateFramebuffer(&framebufferOpts);
-    mpv_fbo.w   = texture_width;
-    mpv_fbo.h   = texture_height;
+        NVGXMframebufferInitOptions framebufferOpts = {
+            .display_buffer_count = 1,  // Must be 1 for custom FBOs
+            .scenesPerFrame       = 1,
+            .render_target        = texture,
+            .color_format         = SCE_GXM_COLOR_FORMAT_U8U8U8U8_ABGR,
+            .color_surface_type   = SCE_GXM_COLOR_SURFACE_LINEAR,
+            .display_width        = texture_width,
+            .display_height       = texture_height,
+            .display_stride       = texture_stride,
+        };
+        mpv_fbo.tex = gxmCreateFramebuffer(&framebufferOpts);
+        mpv_fbo.w   = texture_width;
+        mpv_fbo.h   = texture_height;
+    }
 #else
     int advanced_control{1};
     mpv_opengl_init_params gl_init_params{get_proc_address, nullptr};

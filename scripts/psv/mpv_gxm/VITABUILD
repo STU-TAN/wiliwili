@@ -1,6 +1,6 @@
 pkgname=mpv
-pkgver=263756c30517a2b1329b1a96ad1a8d18160791f2
-pkgrel=4
+pkgver=11c16a2aa7d1e985b4d494da0a2ca19cc73bb5c4
+pkgrel=3
 url="https://mpv.io/"
 source=("${pkgname}-${pkgver}.tar.gz::https://github.com/xfangfang/mpv/archive/${pkgver}.tar.gz")
 sha256sums=('SKIP')
