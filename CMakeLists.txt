@@ -270,8 +270,6 @@ elseif (PLATFORM_PSV)
             NAME ${PROJECT_NAME}
             FILE ${PSV_ASSETS_FILES}
             )
-    # TODO: Remove after mpv related code is done
-    list(APPEND APP_PLATFORM_LINK_OPTION "-Wl,--allow-multiple-definition")
 elseif (PLATFORM_PS4)
     add_self(${PROJECT_NAME})
     add_pkg(${PROJECT_NAME}

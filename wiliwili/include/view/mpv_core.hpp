@@ -21,6 +21,7 @@
 #include <mpv/render_dxgi.h>
 #elif defined(BOREALIS_USE_GXM)
 #include <mpv/render_gxm.h>
+#include <nanovg_gxm_utils.h>
 #elif defined(BOREALIS_USE_OPENGL)
 #include <mpv/render_gl.h>
 #if defined(__PSV__) || defined(PS4)
@@ -426,9 +427,11 @@ private:
     int nvg_image       = 0;
     bool redraw         = false;
     mpv_gxm_fbo mpv_fbo = {
-        .tex    = nullptr,
-        .w      = DISPLAY_WIDTH,
-        .h      = DISPLAY_HEIGHT,
+        .render_target = nullptr,
+        .color_surface = nullptr,
+        .depth_stencil_surface = nullptr,
+        .w = DISPLAY_WIDTH,
+        .h = DISPLAY_HEIGHT,
         .format = SCE_GXM_TEXTURE_FORMAT_U8U8U8U8_RGBA,
     };
     int flip_y{1};

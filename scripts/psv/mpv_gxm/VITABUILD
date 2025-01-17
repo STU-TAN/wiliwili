@@ -1,5 +1,5 @@
 pkgname=mpv
-pkgver=11c16a2aa7d1e985b4d494da0a2ca19cc73bb5c4
+pkgver=a6f4a7e6c4b38626cf80e18987dd3bcfca78a4b5
 pkgrel=3
 url="https://mpv.io/"
 source=("${pkgname}-${pkgver}.tar.gz::https://github.com/xfangfang/mpv/archive/${pkgver}.tar.gz")
@@ -24,7 +24,7 @@ build() {
       -Dsdl2=enabled \
       -Dlibmpv=true \
       -Dgxm=enabled \
-      -Dvitashark=enabled \
+      -Dvitashark=disabled \
       -Dcplayer=false
 
   meson compile -C build

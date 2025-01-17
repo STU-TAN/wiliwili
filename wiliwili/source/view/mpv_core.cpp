@@ -444,7 +444,7 @@ void MPVCore::init() {
                                  {MPV_RENDER_PARAM_GXM_INIT_PARAMS, &gxm_params},
                                  {MPV_RENDER_PARAM_INVALID, nullptr}};
 
-    if (mpv_fbo.tex == nullptr) {
+    if (mpv_fbo.render_target == nullptr) {
         int texture_width     = DISPLAY_WIDTH;
         int texture_height    = DISPLAY_HEIGHT;
         int texture_stride    = ALIGN(texture_width, 8);
@@ -461,7 +461,10 @@ void MPVCore::init() {
             .display_height       = texture_height,
             .display_stride       = texture_stride,
         };
-        mpv_fbo.tex = gxmCreateFramebuffer(&framebufferOpts);
+        NVGXMframebuffer *fbo = gxmCreateFramebuffer(&framebufferOpts);
+        mpv_fbo.render_target = fbo->gxm_render_target;
+        mpv_fbo.color_surface = &fbo->gxm_color_surfaces[0].surface;
+        mpv_fbo.depth_stencil_surface = &fbo->gxm_depth_stencil_surface;
         mpv_fbo.w   = texture_width;
         mpv_fbo.h   = texture_height;
     }
@@ -788,14 +791,6 @@ void MPVCore::draw(brls::Rect area, float alpha) {
     nvgFill(vg);
 #elif defined(BOREALIS_USE_GXM)
     auto *vg = brls::Application::getNVGContext();
-
-    // TODO: 完全完成mpv后移除, 目前mpv调用nanovg内的 gxmClear 会导致视频画面闪烁
-    if (rect.getWidth() < brls::Application::contentWidth) {
-        nvgBeginPath(vg);
-        nvgFillColor(vg, brls::Application::getTheme().getColor("brls/background"));
-        nvgRect(vg, 0, 0, brls::Application::contentWidth, brls::Application::contentHeight);
-        nvgFill(vg);
-    }
 
     NVGpaint img = nvgImagePattern(vg, 0, 0, mpv_fbo.w, mpv_fbo.h, 0, nvg_image, alpha);
     nvgBeginPath(vg);
